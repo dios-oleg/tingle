@@ -50,6 +50,7 @@
             <button class="btn btn--secondary btn-demo js-tingle-modal-4">Stick to me!</button>
             <button class="btn btn--secondary btn-demo js-tingle-modal-5">Close with footer button only</button>
             <button class="btn btn--secondary btn-demo js-tingle-modal-6">?</button>
+            <button class="btn btn--secondary btn-demo js-tingle-modal-7">Work with data</button>
 
             <h2 data-bullet="2" class="title">Installation</h2>
             <table class="methods">
@@ -302,11 +303,36 @@ modal.close();
         </div>
         <!-- /Tingle tiny content -->
 
+        <!-- Tingle: Work with data -->
+        <div class="tingle-demo tingle-demo-work-with-data">
+            <h1>Work with data</h1>
+            <h3 class="form-title">Title</h3>
+            <form class="" method="post">
+              <div class="">
+                <label for="name">Name</label>
+                <input type="text" name="name" id="name" value="" required>
+              </div>
+
+              <div class="">
+                <label for="phone">Phone</label>
+                <input type="text" name="phone" id="phone" value="">
+              </div>
+
+              <div class="">
+                <label for="email">Email</label>
+                <input type="email" name="email" id="email" value="">
+              </div>
+
+              <button type="button" name="button">Submit</button>
+            </form>
+        </div>
+        <!-- /Tingle: Work with data -->
+
     </div>
 
     <!-- /Tingle big content -->
 
-    <script src="tingle/tingle.js"></script>
+    <script src="../src/tingle.js"></script>
     <script type="text/javascript">
 
     /**
@@ -432,6 +458,40 @@ modal.close();
         modalSurprise.setContent('<iframe width="100%" height="400" src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1" frameborder="0" allowfullscreen></iframe>');
         modalSurprise.open();
     });
+
+   /**
+    * Modal with data
+    */
+
+    var btn7 = document.querySelector('.js-tingle-modal-7');
+
+    btn7.addEventListener('click', function(){
+        modalWithData.open();
+    });
+
+    var modalWithData = new tingle.modal();
+    modalWithData.setContent(document.querySelector('.tingle-demo-work-with-data').innerHTML);
+
+    var res = modalWithData.setProperties({
+        name: 'John Doe', // keyName & value: name='name', value='John Doe'
+        numberPhone: { // keyName: elementName Or elementId Or elementClassName
+            identificationMethod: 'id', // class, id // default name
+            identificationValue: 'phone', // default keyName
+            usesByForm: true, // default true
+            defaultAttribute: 'value', // value, another
+            value: '3',
+            classList: [], // any parameters element
+        },
+        title: {
+            identificationMethod: 'className', // class, id // default name
+            identificationValue: 'form-title', // default keyName
+            innerHTML: 'Новый заголовок',
+            defaultAttribute: 'innerHTML',
+        },
+        email: 'My email',
+    })
+    //modalWithData.setValue('name', 'Ivanov');
+    //modalWithData.setValue('numberPhone', 'Ivanov'); // set to the default attribute
 
     </script>
     <script type="text/javascript" src="vendor/highlight/highlight.pack.js"></script>
