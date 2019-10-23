@@ -32,22 +32,35 @@
             footer: false,
             cssClass: [],
             closeLabel: 'Close',
-            closeMethods: ['overlay', 'button', 'escape']
+            closeMethods: ['overlay', 'button', 'escape'],
+            zIndex: 1000,
+            styles: {
+
+            }
         }
 
         // extends config
         this.opts = extend({}, defaults, options)
 
         // data for the modal form
-        this.properties = {};
+        this.entities = {};
 
         this.identificationMethods = ['name', 'id', 'className', 'tagName']; // only read
 
         // the properties disallowed to set values to the elements of modal form
         this.disallowedProperties = [
             'identificationMethod', 'identificationValue', 'defaultAttribute',
-            'usesByForm', 'disallowedProperties'
+            'usesByForm', 'disallowedProperties', 'multiple'
         ]; // read-only
+
+        this.defaultPropertyValues = {
+            identificationMethod: 'name',
+            // identificationValue: 'keyName',
+            usesByForm: true,
+            defaultAttribute: 'value',
+            multiple: false,
+            value: '',
+        };
 
         // init modal
         this.init()
@@ -178,6 +191,12 @@
 
     }
 
+    /**
+     * Sets a content to the modal window.
+     *
+     * @param  {string|HTMLElement} content A HTML content or a HTMLElement (Node).
+     * @return {Modal}
+     */
     Modal.prototype.setContent = function(content) {
         // check type of content : String or Node
         if (typeof content === 'string') {
@@ -195,8 +214,22 @@
         return this
     }
 
+    /**
+     * Returns the content of the modal window.
+     *
+     * @return {string}
+     */
     Modal.prototype.getContent = function() {
-        return this.modalBoxContent
+        return this.modalBoxContent // use innerHTML
+    }
+
+    /**
+     * Returns the HTMLElement (DOM) of the modal window.
+     *
+     * @return {HTMLElement}
+     */
+    Modal.prototype.geModalBoxElement = function () {
+        return this.modalBoxContent;
     }
 
     Modal.prototype.addFooter = function() {
@@ -300,50 +333,333 @@
     }
 
     /**
-     * Sets properties to the instance.
+     * Creates a new entity of the modal form with default values and returns it.
      *
-     * @param  {Object}   properties   The properties as JSON
-     * @param  {boolean}  modalForm    If the value is 'true', then the values
-     * updates on the modal form. Default value is 'true'.
+     * @param  {string} key            An identification value
+     * @param  {object} data           Properties in the form of JSON
+     * @param  {object} defaultValues  The default properties in the form of JSON
+     * @return {object}
+     */
+    Modal.prototype.makeEntity = function (key, data, defaultValues) {
+        var entity = {};
+
+        if (typeof data === 'string') {
+            data = {
+                identificationValue: key,
+                value: data
+            };
+        }
+
+        if (typeof data !== 'object') {
+            return null;
+        }
+
+        Object.assign(entity, data);
+
+        // Sets default values
+        if (typeof defaultValues === 'object') {
+            for (var propertyName in defaultValues) {
+                if (! entity.hasOwnProperty(propertyName)) {
+                    entity[propertyName] = defaultValues[propertyName];
+                }
+            }
+        }
+
+        return entity;
+    }
+
+    /**
+     * Creates and adds a new entity to the entities of the modal form.
+     * If the 'replace' is 'true', then old data of the entity will be replaced.
+     *
+     * @param  {string}        key      A key name of the new entity
+     * @param  {string|object} data     Properties in the form of JSON
+     * @param  {boolean}       replace
      * @return {boolean}
      */
-    Modal.prototype.setProperties = function (properties, updateModalForm) {
-        if (typeof properties != 'object') {
+    Modal.prototype.createEntity = function (key, data, replace) {
+        var entity;
+
+        if (typeof replace !== 'boolean') {
+            replace = true;
+        }
+
+        if (! replace && this.entities.hasOwnProperty(key)) {
             return false;
         }
 
-        this.properties = properties;
+        entity = this.makeEntity(key, data, this.defaultPropertyValues);
 
-        if (typeof updateModalForm === 'boolean' && updateModalForm || typeof updateModalForm === 'undefined') {
-            this.setValues(this.properties);
+        if (! entity) {
+            return false;
+        }
+
+        this.entities[key] = {};
+        Object.assign(this.entities[key], entity);
+
+        return true;
+    }
+
+    /**
+     * Adds a new entity to the entities of the modal form.
+     * If the 'updateModalForm' is true, then the values of the modal form
+     * will be updated. Default value is 'true'.
+     * If the 'replace' is 'true', then old data of the entity will be replaced.
+     *
+     * @param  {string}   key             An entity key
+     * @param  {object}   data            Properties of the entity
+     * @param  {boolean}  updateModalForm
+     * @param  {boolean}  replace
+     * @return {boolean}
+     */
+    Modal.prototype.setEnity = function (key, data, updateModalForm, replace) {
+        if (updateModalForm !== 'boolean') {
+            updateModalForm = true;
+        }
+
+        if (! this.createEntity(key, data, replace)) {
+            return false;
+        }
+
+        if (updateModalForm) {
+            this.updateModalFormFromEntity(key);
         }
 
         return true;
     }
 
     /**
-     * Returns properties from the instance.
+     * Returns all properties of an entity of the modal form.
+     * If the 'updateEntity' is 'true', then the entity will get data
+     * from the modal form. Default 'updateEntity' is 'true'.
      *
-     * @param  {boolean}  updateModalForm    If the value is 'true', then the values
-     * updates on the modal form. Default value is 'true'.
-     * @return {Object}                      The properties as JSON
+     * @param  {string}   key                An entity key
+     * @param  {boolean}  updateEntity
+     * @return {object}
      */
-    Modal.prototype.getProperties = function (updateModalForm) {
-        if (typeof updateModalForm === 'boolean' && updateModalForm) {
-            // TODO merge  - объединить/обновить, т.к. могут быть разные
-            this.properties = this.getValues(); // считать только те, которые определены
-            // или вообще только defaultValues
+    Modal.prototype.getEnity = function (key, updateEntity) {
+        if (typeof updateEntity !== 'boolean') {
+            updateEntity = true;
         }
 
-        return this.properties;
+        if (! this.entities.hasOwnProperty(key)) {
+            return null;
+        }
+
+        if (updateEntity) {
+            this.updateEntityFromModalForm(key);
+        }
+
+        return this.entities[key];
     }
 
-    Modal.prototype.setProperty = function (key, value, updateModalForm) {
+    /**
+     * Returns an array of property names of an entity.
+     * The array doesn't include the disallowed properties.
+     *
+     * @param  {string}   key   An entity key
+     * @return {array}
+     */
+    Modal.prototype.getEntityPropertyNames = function (key) {
+        var names, position;
 
+        if (this.entities.hasOwnProperty(key)) {
+            names = Object.keys(this.entities[key]);
+
+            for (var i = 0; i < this.disallowedProperties.length; i++) {
+                position = names.indexOf(this.disallowedProperties[i]);
+
+                if (position >= 0) {
+                    names.splice(position, 1);
+                }
+            }
+        }
+
+        return names;
     }
 
-    Modal.prototype.getProperty = function (key, updateModalForm) {
+    /**
+     * Updates an entity of the modal form new data.
+     * If the 'updateModalForm' is true, then the values of the modal form
+     * will be updated. Default value is 'true'.
+     *
+     * @param  {string}  key               An entity key
+     * @param  {object}  data              Properties in the form of JSON
+     * @param  {boolean} updateModalForm
+     * @return {boolean}
+     */
+    Modal.prototype.updateEntity = function (key, data, updateModalForm) {
+        if (typeof updateModalForm !== 'boolean') {
+            updateModalForm = true;
+        }
 
+        if (! this.entities.hasOwnProperty(key)) {
+            return false;
+        }
+
+        for (var property in data) {
+            this.entities[key][property] = data[property];
+        }
+
+        if (updateModalForm) {
+            this.updateModalFormFromEntity(key);
+        }
+
+        return true;
+    }
+
+    /**
+     * Updates a value of a property of the default attribute of the modal form.
+     * If the 'updateModalForm' is true, then the values of the modal form
+     * will be updated. Default value is 'true'.
+     *
+     * @param  {string}  key               An entity key
+     * @param  {string}  value             New value of the property
+     * @param  {boolean} updateModalForm
+     * @return {boolean}
+     */
+    Modal.prototype.updateEntityDefaultProperty = function (key, value, updateModalForm) {
+        if (! this.entities.hasOwnProperty(key)) {
+            return false;
+        }
+
+        if (typeof updateModalForm !== 'boolean') {
+            updateModalForm = true;
+        }
+
+        this.entities[key][this.entities[key].defaultAttribute] = value;
+
+        if (updateModalForm) {
+            this.updateModalFormFromEntity(key);
+        }
+
+        return true;
+    }
+
+    /**
+     * Updates data of the entity from the modal form.
+     *
+     * @param  {string}  key   An entity key
+     * @return {boolean}
+     */
+    Modal.prototype.updateEntityFromModalForm = function (key) {
+        if (! this.entities.hasOwnProperty(key)) {
+            return false;
+        }
+
+        this.entities[key][this.entities[key].defaultAttribute] = this.getValue(key);
+
+        return true;
+    }
+
+    /**
+     * Updates the modal form from entity data.
+     *
+     * @param  {string}  key   An entity key
+     * @return {boolean}
+     */
+    Modal.prototype.updateModalFormFromEntity = function (key) {
+        if (! this.entities.hasOwnProperty(key)) {
+            return false;
+        }
+
+        this.setSomeValues(key, this.entities[key]);
+
+        return true;
+    }
+
+    /**
+     * Set values to the element of the modal form.
+     *
+     * @param  {HTMLElement}   element  The Node of the HTML element
+     * @param  {string}        key      An entity key
+     * @param  {string|object} value    New values
+     * @return {number}
+     */
+    Modal.prototype.setValueToElement = function (element, key, value) {
+        var iterations = 0; // the number of changes
+
+        if (typeof value === 'string' && _setAttributeValue(element, this.getDefaultAttributeOfElement(key), value)) {
+            iterations++;
+        } else if (typeof value === 'object') {
+            for (var property in value) {
+                if (this.disallowedProperties.indexOf(property) < 0) {
+                    if (_setAttributeValue(element, property, value[property])) {
+                        iterations++;
+                    }
+                }
+            }
+        }
+
+        return iterations;
+    }
+
+    /**
+     * Sets one value to the modal form by the key name.
+     *
+     * @param  {string}   key
+     * @param  {mixed}    value
+     * @return {number}
+     */
+    Modal.prototype.setValue = function (key, value) {
+        if (typeof value === 'string' || Array.isArray(value)) {
+            return this.setSomeValues(key, value);
+        }
+
+        return 0;
+    }
+
+    /**
+     * Sets some values to the modal form. Returns the number of elements changed.
+     *
+     * @param  {string}                 key
+     * @param  {string|object|array}    value
+     * @return {number}
+     */
+    Modal.prototype.setSomeValues = function (key, value) {
+        var elements = this.findAnyElementsByKeyName(key),
+            iterations = 0; // the number of changes
+
+        if (elements instanceof NodeList || elements instanceof HTMLCollection) {
+            for (var i = 0; i < elements.length; i++) {
+                iterations += this.setValueToElement(elements.item(i), key, value);
+            }
+        } else if (elements instanceof HTMLElement) {
+            return this.setValueToElement(elements, key, value);
+        }
+
+        return iterations;
+    }
+
+    /**
+     * Returns a value from the modal form by key name.
+     *
+     * @param  {string}   key
+     * @return {string|array}
+     */
+    Modal.prototype.getValue = function (key) {
+        var element = this.findElementByKeyName(key)
+            attribute = this.getDefaultAttributeOfElement(key);
+
+        return element ? _getAttributeValue(element, attribute) : null;
+    }
+
+    /**
+     * Returns data of a HTML element what matches to properties of the entity.
+     *
+     * @param  {string} key
+     * @return {object}
+     */
+    Modal.prototype.getSomeValues = function (key) {
+        var properties = this.getEntityPropertyNames(key),
+            element = this.findElementByKeyName(key),
+            values = {};
+            console.log(element);
+        for (var i = 0; i < properties.length; i++) {
+            values[properties[i]] = _getAttributeValue(element, properties[i]);
+        }
+
+        return element ? values : null;
     }
 
     /**
@@ -357,122 +673,79 @@
         var iterations = 0;
 
         for (var key in values) {
-            iterations += this.setValue(key, values[key]);
+            iterations += this.setSomeValues(key, values[key]);
         }
 
         return iterations;
     }
 
     /**
-     * Returns values from the modal form without reads from the properties.
+     * Sets new entities to the modal form.
+     * If the 'updateModalForm' is true, then the values of the modal form
+     * will be updated. Default value is 'true'.
      *
-     * @return {Object} The values as JSON
+     * @param  {object}   entities         The new entities in the form of JSON
+     * @param  {boolean}  updateModalForm
+     * @return {boolean}
      */
-    Modal.prototype.getValues = function () {
-        // считывает определенные значения с формы
-        // может считать значения по умолчанию, а может считать все заданные свойства
-        // и пересохранить их
+    Modal.prototype.setEntities = function (entities, updateModalForm) {
+        if (typeof entities !== 'object') {
+            return false;
+        }
+
+        for (var key in entities) {
+            this.setEnity(key, entities[key], updateModalForm);
+        }
+
+        return true;
     }
 
     /**
-     * Sets the value to the modal form by the key name.
-     * Returns number of elements changed.
+     * Returns entities of the modal form. The entities returns in the form of JSON.
+     * If the 'updateEntities' is 'true', then the entities will get data
+     * from the modal form. Default 'updateEntities' is 'true'.
      *
-     * @param  {string}   key
-     * @param  {mixed}    value
-     * @return {number}
+     * @param  {boolean}  updateEntities
+     * @return {object}
      */
-    Modal.prototype.setValue = function (key, value) {
-        var name = this.getIdentificationValueByKeyName(key),
-            method = this.getIdentificationMethodByKeyName(key),
-            elements,
-            iterations = 0; // number of changes
+    Modal.prototype.getEntities = function (updateEntities) {
+        var keys = Object.keys(this.entities);
 
-
-        if (! (name && method)) {
-            return iterations;
+        if (typeof updateEntities !== 'boolean') {
+            updateEntities = true;
         }
 
-        elements = this.findElementsByValueAndMethod(name, method);
-
-        if (name == 'phone' || name == 'form-title') {
-            console.log(name);
-            console.log(elements);
-        }
-
-        for (var i = 0; i < elements.length; i++) {
-            if (typeof value === 'string') {
-
-                var attribute = this.getDefaultAttributeOfElementModalForm(key);
-
-                if (_setAttributeValue(elements.item(i), attribute, value)) {
-                    iterations++;
-                }
-
-            } else if (typeof value === 'object') {
-
-                var changed; // detects changes
-
-                for (var property in value) {
-                    changed = false;
-
-                    if (this.disallowedProperties.indexOf(property) < 0) {
-                        if (_setAttributeValue(elements.item(i), property, value[property])) {
-                            changed = true;
-                        }
-                    }
-                }
-
-                if (changed) {
-                    iterations++;
-                }
-
+        if (updateEntities) {
+            for (var i = 0; i < keys.length; i++) {
+                this.updateEntityFromModalForm(keys[i])
             }
         }
 
-        return iterations;
+        return this.entities;
     }
 
     /**
-     * Returns the value from the modal form by key name.
-     *
-     * @param  {string}   name
-     * @return {mixed}
-     */
-    Modal.prototype.getValue = function (name) {
-      // определяется источник поиска данных
-      // ищется ключевое имя в параметрах
-      // считываются значения из параметров, как прочитать значение
-      // считывается значение(я) и возвращаются данные
-    }
-
-    Modal.prototype.forceSetValue = function (name, value) {
-        // принудительная запись значения и может быть добавление в список атриюутов
-        // или игнорируя их
-    }
-
-    Modal.prototype.forceGetValue = function (name) {
-        // принудительно считывает данные формы, даже, которые не были определены в
-        // параметрах
-        // считывает только input или свойство по умолчанию, хотя можно задавать такие значения
-    }
-
-    /**
-     * Determines whether an element is uses in the modal form.
+     * Determines whether the element of the property is uses in the modal form.
      *
      * @param  {string}   key
      * @return {boolean}
      */
     Modal.prototype.isUsesByForm = function (key) {
-        if (this.properties.hasOwnProperty(key)) {
-            if (typeof this.properties[key] === 'object') {
-                return (! this.properties[key].hasOwnProperty('usesByForm')) || this.properties[key].usesByForm;
-            }
+        return this.entities.hasOwnProperty(key)
+               ? this.entities[key].usesByForm
+               : false;
+    }
 
-            return typeof this.properties[key] === 'string';
-        }
-
-        return false;
+    /**
+     * Determines whether the property is multiple uses in the modal form.
+     *
+     * @param  {string}   key
+     * @return {boolean}
+     */
+    Modal.prototype.isPropertyMultiple = function (key) {
+        return this.entities.hasOwnProperty(key)
+               ? this.entities[key].multiple
+               : false;
     }
 
     /**
@@ -482,17 +755,9 @@
      * @return {string}
      */
     Modal.prototype.getIdentificationValueByKeyName = function (key) {
-        if (this.isUsesByForm(key)) {
-            if (this.properties[key].hasOwnProperty('identificationValue')
-                    && typeof this.properties[key].identificationValue === 'string'
-                    && this.properties[key].identificationValue.trim().length) {
-                return this.properties[key].identificationValue;
-            }
-
-            return key;
-        }
-
-        return null;
+        return this.entities.hasOwnProperty(key)
+               ? this.entities[key].identificationValue
+               : null;
     }
 
     /**
@@ -502,18 +767,9 @@
      * @return {string}
      */
     Modal.prototype.getIdentificationMethodByKeyName = function (key) {
-        if (this.isUsesByForm(key)) {
-            if (typeof this.properties[key] === 'object'
-                    && this.properties[key].hasOwnProperty('identificationMethod')
-                    && typeof this.properties[key].identificationMethod === 'string'
-                    && this.identificationMethods.indexOf(this.properties[key].identificationMethod) >= 0) {
-                return this.properties[key].identificationMethod;
-            }
-
-            return 'name';
-        }
-
-        return null;
+        return this.entities.hasOwnProperty(key)
+               ? this.entities[key].identificationMethod
+               : null;
     }
 
     /**
@@ -522,28 +778,59 @@
      * @param  {string} key
      * @return {string}
      */
-    Modal.prototype.getDefaultAttributeOfElementModalForm = function (key) {
-        if (this.isUsesByForm(key)) {
-            if (typeof this.properties[key] === 'object'
-                    && this.properties[key].hasOwnProperty('defaultAttribute')) {
-                return this.properties[key].defaultAttribute;
-            }
+    Modal.prototype.getDefaultAttributeOfElement = function (key) {
+        return this.entities.hasOwnProperty(key)
+               ? this.entities[key].defaultAttribute
+               : null;
+    }
 
-            return 'value';
+    Modal.prototype.findElementByKeyName = function (key) {
+        var name = this.getIdentificationValueByKeyName(key),
+            method = this.getIdentificationMethodByKeyName(key);
+
+        if (! (name && method)) {
+            return null;
         }
 
-        return null;
+        return this.findElementByMethodAndValue(method, name);
+    }
+
+    Modal.prototype.findElementsByKeyName = function (key) {
+        var name = this.getIdentificationValueByKeyName(key),
+            method = this.getIdentificationMethodByKeyName(key);
+
+        if (! (name && method)) {
+            return null;
+        }
+
+        return this.findElementsByMethodAndValue(method, name);
+    }
+
+    Modal.prototype.findAnyElementsByKeyName = function (key) {
+        var name = this.getIdentificationValueByKeyName(key),
+            method = this.getIdentificationMethodByKeyName(key),
+            multiple = this.isPropertyMultiple(key);
+
+        if (! (name && method)) {
+            return null;
+        }
+
+        return multiple
+               ? this.findElementsByMethodAndValue(method, name)
+               : this.findElementByMethodAndValue(method, name);
     }
 
     /**
      * Returns a HTMLElement by the identification value of element
      * and the identification method.
      *
-     * @param  {string} value
      * @param  {string} method
+     * @param  {string} value
      * @return {HTMLElement}
      */
-    Modal.prototype.findElementByValueAndMethod = function (value, key) {
+    Modal.prototype.findElementByMethodAndValue = function (method, value) {
+        var elements;
+
         if (! (this.modalBoxContent instanceof HTMLElement)) {
             return null;
         }
@@ -553,15 +840,15 @@
         }
 
         if (method == 'id') {
-            return this.modalBoxContent.getElementById(value);
+            return this.modalBoxContent.querySelector('#'+value);
         } else if (method == 'selector') {
             return this.modalBoxContent.querySelector(value);
         } else if (method == 'name') {
-            var elements = this.modalBoxContent.querySelectorAll('input[name="'+value+'"]');
+            elements = this.modalBoxContent.querySelectorAll('input[name="'+value+'"]');
         } else if (method == 'className') {
-            var elements = this.modalBoxContent.getElementsByClassName(value);
+            elements = this.modalBoxContent.getElementsByClassName(value);
         } else if (method == 'tagName') {
-            var elements = this.modalBoxContent.getElementsByTagName(value);
+            elements = this.modalBoxContent.getElementsByTagName(value);
         }
 
         if (typeof elements != 'undefined' && elements.length > 0) {
@@ -575,11 +862,11 @@
      * Returns a collection of found elements by the identification value of element
      * and the identification method.
      *
-     * @param  {string} value
      * @param  {string} method
+     * @param  {string} value
      * @return {NodeList|HTMLCollection}
      */
-    Modal.prototype.findElementsByValueAndMethod = function (value, method) {
+    Modal.prototype.findElementsByMethodAndValue = function (method, value) {
         if (! (this.modalBoxContent instanceof HTMLElement)) {
             return null;
         }
@@ -597,7 +884,7 @@
         } else if (method == 'tagName') {
             return this.modalBoxContent.getElementsByTagName(value);
         } else if (method == 'selector') {
-            this.modalBoxContent.querySelectorAll(value);
+            return this.modalBoxContent.querySelectorAll(value);
         }
 
         return null;
@@ -631,6 +918,11 @@
         }
 
         this.modal.style.display = 'none'
+
+        // z-index
+        if (Number.isInteger(this.opts.zIndex)) {
+            this.modal.style.zIndex = this.opts.zIndex
+        }
 
         // custom class
         this.opts.cssClass.forEach(function(item) {
@@ -729,12 +1021,12 @@
     }
 
     /**
-     * Sets the value of an attribute on the specified element.
+     * Sets the value of the attribute to the HTMLElement.
      *
      * @param       {HTMLElement}       element
      * @param       {string}            attribute
      * @param       {string|array|null} value
-     * @constructor
+     * @return      {boolean}
      */
     function _setAttributeValue(element, attribute, value) {
         if (! (element instanceof HTMLElement)) {
@@ -752,17 +1044,43 @@
                 return false;
             }
         } else if (attribute == 'innerHTML' && typeof value === 'string') {
-            console.log('ihher');
-            console.log(element);
-            console.log(value);
             element.innerHTML = value;
-        } else if (typeof value === 'string') {
+        } else if (attribute in element) {
+            element[attribute] = value;
+        } else if (typeof value === 'string' || typeof value === 'number') {
             element.setAttribute(attribute, value);
         } else {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Returns the value of the attribute of the element.
+     *
+     * @param       {HTMLElement} element
+     * @param       {string}      attribute
+     * @return      {string|array}
+     */
+    function _getAttributeValue(element, attribute) {
+        if (! (element instanceof HTMLElement || typeof attribute === 'string')) {
+            return null;
+        }
+
+        if (attribute == 'classList') {
+            return element.className.split(' ');
+        } else if (attribute == 'className') {
+            return element.className;
+        } else if (attribute == 'innerHTML') {
+            return element.innerHTML;
+        } else if (attribute in element) {
+            return element[attribute];
+        } else if (element.hasAttribute(attribute)) {
+            return element.getAttribute(attribute);
+        }
+
+        return null;
     }
 
     /* ----------------------------------------------------------- */
@@ -779,6 +1097,47 @@
         }
         return arguments[0]
     }
+
+    // Polyfills
+    Number.isInteger = Number.isInteger || function(value) {
+      return typeof value === 'number'
+             && Number.isFinite(value)
+             && !(value % 1);
+    };
+
+    Number.isFinite = Number.isFinite || function(value) {
+      return typeof value === 'number' && isFinite(value);
+    }
+
+    if (typeof Object.assign !== 'function') {
+        // Must be writable: true, enumerable: false, configurable: true
+        Object.defineProperty(Object, "assign", {
+            value: function assign(target, varArgs) { // .length of function is 2
+              'use strict';
+              if (target === null || target === undefined) {
+                throw new TypeError('Cannot convert undefined or null to object');
+              }
+
+              var to = Object(target);
+
+              for (var index = 1; index < arguments.length; index++) {
+                var nextSource = arguments[index];
+
+                if (nextSource !== null && nextSource !== undefined) {
+                  for (var nextKey in nextSource) {
+                    // Avoid bugs when hasOwnProperty is shadowed
+                    if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+                      to[nextKey] = nextSource[nextKey];
+                    }
+                  }
+                }
+              }
+              return to;
+            },
+            writable: true,
+            configurable: true
+        });
+      }
 
     /* ----------------------------------------------------------- */
     /* == return */

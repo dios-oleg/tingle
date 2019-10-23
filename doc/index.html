@@ -307,6 +307,7 @@ modal.close();
         <div class="tingle-demo tingle-demo-work-with-data">
             <h1>Work with data</h1>
             <h3 class="form-title">Title</h3>
+            <b class="form-title">Title</b>
             <form class="" method="post">
               <div class="">
                 <label for="name">Name</label>
@@ -323,7 +324,7 @@ modal.close();
                 <input type="email" name="email" id="email" value="">
               </div>
 
-              <button type="button" name="button">Submit</button>
+              <button type="button" name="updateData" id="updateData">Submit</button>
             </form>
         </div>
         <!-- /Tingle: Work with data -->
@@ -469,29 +470,94 @@ modal.close();
         modalWithData.open();
     });
 
-    var modalWithData = new tingle.modal();
+    var modalWithData = new tingle.modal({
+        styles: { // стили необходимы для создания разных окон/внешнего представления
+            wrapper: 'tingle-modal', // wrapper class - обертка всего компонента
+            enabled: 'tingle-modal--visible', // class when showed - когда окно активировано
+            disable: null, // class when hidden - когда окно закрыто
+            modalContainer: 'tingle-modal-box', // container class - класс контейнера модального окна
+            modalContent: 'tingle-modal-box__content', // content class - класс контента
+            modalFooter: 'tingle-modal-box__footer', // footer class - класс футера
+            modalFooterSticky: 'tingle-modal-box__footer--sticky', // класс зафиксированного футера
+            modalHeader: null, // класс хедера
+            closeContainer: 'tingle-modal__close', // close class - класс контейнера закрыть
+            closeIcon: 'tingle-modal__closeIcon', // close icon class ? // класс иконки
+            closeLabel: 'tingle-modal__closeLabel' // close label class ? // класс label
+            //'tingle-modal--overflow'
+
+            //'tingle-modal--noOverlayClose'
+
+            //'tingle-enabled'
+        },
+        zIndex: 1055, // если действующий z-zndex не подходит (другие элементы перекрывают его)
+        minZIndex: 1050, // для того, чтобы делать мультиокна и перекрывать существующий контент
+        maxZIndex: 1100
+
+    });
     modalWithData.setContent(document.querySelector('.tingle-demo-work-with-data').innerHTML);
 
-    var res = modalWithData.setProperties({
-        name: 'John Doe', // keyName & value: name='name', value='John Doe'
+    var res = modalWithData.setEntities({
+        name: 'John Doe 2', // keyName & value: name='name', value='John Doe'
         numberPhone: { // keyName: elementName Or elementId Or elementClassName
             identificationMethod: 'id', // class, id // default name
             identificationValue: 'phone', // default keyName
             usesByForm: true, // default true
             defaultAttribute: 'value', // value, another
-            value: '3',
-            classList: [], // any parameters element
+            multiple: false,
+            value: '33',
+            'data-per': 654
+            //classList: [], // any parameters element
         },
         title: {
             identificationMethod: 'className', // class, id // default name
             identificationValue: 'form-title', // default keyName
+            multiple: true,
             innerHTML: 'Новый заголовок',
             defaultAttribute: 'innerHTML',
         },
         email: 'My email',
     })
-    //modalWithData.setValue('name', 'Ivanov');
+
     //modalWithData.setValue('numberPhone', 'Ivanov'); // set to the default attribute
+    //modalWithData.setProperty('name', 'Ivanov');
+    //modalWithData.setProperty('name', 'Ivanov', true); // reset old values - сбрасывает старые данные
+    //или просто заменяет основное значение свойства
+
+    console.log('---');
+
+    console.log(modalWithData.getEnity('name') );
+    console.debug('name - '+(modalWithData.getEnity('name').value == 'John Doe 2'));
+    console.debug('email - '+(modalWithData.getEnity('email').value == 'My email'));
+    console.debug('numberPhone - '+(modalWithData.getEnity('numberPhone').value == '33'));
+    console.debug('title - '+(modalWithData.getEnity('title')[modalWithData.getEnity('title').defaultAttribute] == 'Новый заголовок'));
+
+    modalWithData.setValue('title', 'Ivanov');
+    modalWithData.setValue('numberPhone', '65');
+    modalWithData.setValue('email', '3rr');
+
+    console.log('---');
+
+    console.log('title '+(modalWithData.getValue('title') == 'Ivanov')+' = '+modalWithData.getValue('title'));
+    console.log('numberPhone '+(modalWithData.getValue('numberPhone') == '65')+' = '+modalWithData.getValue('numberPhone'));
+    console.log('email '+(modalWithData.getValue('email') == '3rr')+' = '+modalWithData.getValue('email'));
+    console.log('name '+(modalWithData.getValue('name') == 'John Doe 2')+' = '+modalWithData.getValue('name'));
+    console.log('name '+(modalWithData.getValue('name') == 'John Doe 22')+' = '+modalWithData.getValue('name'));
+
+    console.log('---');
+
+    updateData.addEventListener('click', function () {
+        modalWithData.setValue('title', 'Petrov');
+        modalWithData.setValue('numberPhone', '555-55-55');
+        console.log(modalWithData.getEnity('name'));
+        console.log(modalWithData.getEnity('numberPhone'));
+        console.log(modalWithData.getValue('email'));
+        console.log(modalWithData.getEnity('email', false));
+        console.log(modalWithData.getEnity('email'));
+    });
+
+    console.log(modalWithData.getEntityPropertyNames('title'));
+    console.log('some values');
+    console.log(modalWithData.getSomeValues('numberPhone'));
 
     </script>
     <script type="text/javascript" src="vendor/highlight/highlight.pack.js"></script>
